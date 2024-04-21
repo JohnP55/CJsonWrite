@@ -19,12 +19,6 @@ typedef enum JSONType {
     JSONArrayType
 } JSONType_t;
 
-/// @brief Different statuses that can be returned.
-typedef enum JSONStatus {
-    JSONSuccess,
-    JSONWarningArrayIsEmpty
-} JSONStatus_t;
-
 /// @brief union type for the value of a JSONNode.
 /*
  * The primitive types are self-explanatory: bool is a boolean value (true/false), char* is a string value, etc.
@@ -96,19 +90,19 @@ bool JSONObjIsEmpty(JSONObj_t* pObj);
 size_t JSONArrayGetNumElements(JSONArray_t* pArray);
 bool JSONNodeCanHaveChildren(JSONNode_t* pNode);
 
-JSONStatus_t JSONNodeConnectNeighbors(JSONNode_t* pNode);
-JSONStatus_t JSONNodeInsertAfter(JSONNode_t* pLeft, JSONNode_t* pNewNode);
+void JSONNodeConnectNeighbors(JSONNode_t* pNode);
+void JSONNodeInsertAfter(JSONNode_t* pLeft, JSONNode_t* pNewNode);
 
-JSONStatus_t JSONArrayDestroyElements(JSONArray_t* pArray);
-JSONStatus_t JSONObjDestroyChildren(JSONObj_t* pObj);
-JSONStatus_t JSONNodeDestroy(JSONNode_t* pNode);
+void JSONArrayDestroyElements(JSONArray_t* pArray);
+void JSONObjDestroyChildren(JSONObj_t* pObj);
+void JSONNodeDestroy(JSONNode_t* pNode);
 
-JSONStatus_t JSONArrayGetNthNode(JSONArray_t* pArray, int_type n, JSONNode_t** pOutNode);
+JSONNode_t* JSONArrayGetNthNode(JSONArray_t* pArray, int_type n);
 void JSONArrayNodeAddNode(JSONNode_t* pArrayNode, JSONNode_t* pChild);
-JSONStatus_t JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx);
-JSONStatus_t JSONArrayNodeRemoveAllNodes(JSONNode_t* pNode);
+void JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx);
+void JSONArrayNodeRemoveAllNodes(JSONNode_t* pNode);
 
-JSONStatus_t JSONNodeAdoptChildNode(JSONNode_t* pParent, JSONNode_t* pChild);
+void JSONNodeAdoptChildNode(JSONNode_t* pParent, JSONNode_t* pChild);
 JSONNode_t* JSONCreateNode(const char* name, JSONType_t type, JSONValue_t value);
 
 JSONNode_t* JSONCreateNamedNullNode(const char* name);
@@ -131,25 +125,25 @@ JSONNode_t* JSONCreateObjNode(JSONObj_t* pObj);
 JSONNode_t* JSONCreateNewArrayNode();
 JSONNode_t* JSONCreateArrayNode(JSONArray_t* pArray);
 
-JSONStatus_t JSONNodeAddNamedNullNode(JSONNode_t* pParent, const char* name);
-JSONStatus_t JSONNodeAddNamedBoolNode(JSONNode_t* pParent, const char* name, bool value);
-JSONStatus_t JSONNodeAddNamedIntNode(JSONNode_t* pParent, const char* name, int_type value);
-JSONStatus_t JSONNodeAddNamedFloatNode(JSONNode_t* pParent, const char* name, float_type value);
-JSONStatus_t JSONNodeAddNamedStringNode(JSONNode_t* pNode, const char* name, const char* value);
-JSONStatus_t JSONNodeAddNewNamedObjNode(JSONNode_t* pParent, const char* name);
-JSONStatus_t JSONNodeAddNamedObjNode(JSONNode_t* pParent, const char* name, JSONObj_t* pObj);
-JSONStatus_t JSONNodeAddNewNamedArrayNode(JSONNode_t* pParent, const char* name);
-JSONStatus_t JSONNodeAddNamedArrayNode(JSONNode_t* pParent, const char* name, JSONArray_t* pArray);
+void JSONNodeAddNamedNullNode(JSONNode_t* pParent, const char* name);
+void JSONNodeAddNamedBoolNode(JSONNode_t* pParent, const char* name, bool value);
+void JSONNodeAddNamedIntNode(JSONNode_t* pParent, const char* name, int_type value);
+void JSONNodeAddNamedFloatNode(JSONNode_t* pParent, const char* name, float_type value);
+void JSONNodeAddNamedStringNode(JSONNode_t* pNode, const char* name, const char* value);
+void JSONNodeAddNewNamedObjNode(JSONNode_t* pParent, const char* name);
+void JSONNodeAddNamedObjNode(JSONNode_t* pParent, const char* name, JSONObj_t* pObj);
+void JSONNodeAddNewNamedArrayNode(JSONNode_t* pParent, const char* name);
+void JSONNodeAddNamedArrayNode(JSONNode_t* pParent, const char* name, JSONArray_t* pArray);
 
-JSONStatus_t JSONNodeAddNullNode(JSONNode_t* pParent);
-JSONStatus_t JSONNodeAddBoolNode(JSONNode_t* pParent, bool value);
-JSONStatus_t JSONNodeAddIntNode(JSONNode_t* pParent, int_type value);
-JSONStatus_t JSONNodeAddFloatNode(JSONNode_t* pParent, float_type value);
-JSONStatus_t JSONNodeAddStringNode(JSONNode_t* pNode, const char* value);
-JSONStatus_t JSONNodeAddNewObjNode(JSONNode_t* pParent);
-JSONStatus_t JSONNodeAddObjNode(JSONNode_t* pParent, JSONObj_t* pObj);
-JSONStatus_t JSONNodeAddNewArrayNode(JSONNode_t* pParent);
-JSONStatus_t JSONNodeAddArrayNode(JSONNode_t* pParent, JSONArray_t* pArray);
+void JSONNodeAddNullNode(JSONNode_t* pParent);
+void JSONNodeAddBoolNode(JSONNode_t* pParent, bool value);
+void JSONNodeAddIntNode(JSONNode_t* pParent, int_type value);
+void JSONNodeAddFloatNode(JSONNode_t* pParent, float_type value);
+void JSONNodeAddStringNode(JSONNode_t* pNode, const char* value);
+void JSONNodeAddNewObjNode(JSONNode_t* pParent);
+void JSONNodeAddObjNode(JSONNode_t* pParent, JSONObj_t* pObj);
+void JSONNodeAddNewArrayNode(JSONNode_t* pParent);
+void JSONNodeAddArrayNode(JSONNode_t* pParent, JSONArray_t* pArray);
 
 size_t JSONNodeGetPreValLength(JSONNode_t* pNode);
 size_t JSONNodeGetValueLength(JSONNode_t* pNode);

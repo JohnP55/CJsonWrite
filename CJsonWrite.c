@@ -62,8 +62,7 @@ bool JSONNodeCanHaveChildren(JSONNode_t* pNode) {
 #pragma region NODE_UTILS
 /// @brief Connects its previous node to its next node, and its next node to its previous node. This is the "write to the JSONNode" step of removing a node from a JSONArray.
 /// @param pNode The node in question
-/// @return The outcome (always JSONSuccess for this one... for now)
-JSONStatus_t JSONNodeConnectNeighbors(JSONNode_t* pNode) {
+void JSONNodeConnectNeighbors(JSONNode_t* pNode) {
     JsonAssert(pNode != NULL);
     JSONNode_t* pPrev = pNode->pPrevSibling;
     JSONNode_t* pNext = pNode->pNextSibling;
@@ -74,14 +73,12 @@ JSONStatus_t JSONNodeConnectNeighbors(JSONNode_t* pNode) {
     if (pNext != NULL) {
         pNext->pPrevSibling = pPrev;
     }
-    return JSONSuccess;
 }
 
 /// @brief Connects two nodes together, linking the leftmost node's next sibling node.
 /// @param pLeft The leftmost node to link with.
 /// @param pNewNode A node with no prior connections ready to be inserted.
-/// @return JSONSuccess
-JSONStatus_t JSONNodeInsertAfter(JSONNode_t* pLeft, JSONNode_t* pNewNode) {
+void JSONNodeInsertAfter(JSONNode_t* pLeft, JSONNode_t* pNewNode) {
     JsonAssert(pLeft != NULL);
     JsonAssert(pNewNode != NULL);
     JsonAssertMsg(pNewNode->pPrevSibling == NULL, "Tried to insert node into an array, but the new node already has a previous sibling ! Nodes should only have one reference at all times.");
@@ -94,18 +91,16 @@ JSONStatus_t JSONNodeInsertAfter(JSONNode_t* pLeft, JSONNode_t* pNewNode) {
 
     pLeft->pNextSibling = pNewNode;
     pNewNode->pPrevSibling = pLeft;
-    return JSONSuccess;
 }
 #pragma endregion
 
 /// @brief Destroys all elements of a JSONArray.
 /// @param pArray The array
-/// @return JSONSuccess
-JSONStatus_t JSONArrayDestroyElements(JSONArray_t* pArray) {
+void JSONArrayDestroyElements(JSONArray_t* pArray) {
     JSONArrayMustBeValid(pArray);
     
     if (JSONArrayIsEmpty(pArray)) {
-        return JSONWarningArrayIsEmpty;
+        return;
     }
 
     JSONNode_t* current = pArray->pStart;
@@ -118,12 +113,10 @@ JSONStatus_t JSONArrayDestroyElements(JSONArray_t* pArray) {
     }
     pArray->pStart = NULL;
     pArray->pEnd = NULL;
-    return JSONSuccess;
 }
 /// @brief Destroys all children of a JSONObj.
 /// @param pArray The obj
-/// @return JSONSuccess
-JSONStatus_t JSONObjDestroyChildren(JSONObj_t* pObj) {
+void JSONObjDestroyChildren(JSONObj_t* pObj) {
     JSONObjMustBeValid(pObj);
 
     JSONNode_t* current = pObj->pFirstChild;
@@ -134,18 +127,16 @@ JSONStatus_t JSONObjDestroyChildren(JSONObj_t* pObj) {
         JSONNodeDestroy(current);
         current = next;
     }
-    return JSONSuccess;
 }
 /// @brief Recursively destroys each JSONNode in the tree. Handles everything related to the destruction process of any kind of JSONNode. Should be called every time you need to dispose of a JSONNode. 
 /// @param pNode The node to destroy
-/// @return The result (should be JSONSuccess all the time i think)
-JSONStatus_t JSONNodeDestroy(JSONNode_t* pNode) {
+void JSONNodeDestroy(JSONNode_t* pNode) {
     JsonAssert(pNode != NULL);
     switch (pNode->type) {
         case JSONArrayType: {
             JSONArray_t* pArray = pNode->value.pArray;
             if (!JSONArrayIsEmpty(pArray)) {
-                JsonAssertMsg(JSONArrayDestroyElements(pArray) == JSONSuccess, "Failed to destroy elements of an array !");
+                JSONArrayDestroyElements(pArray);
             }
             jsonFuncs.free(pArray);
             break;
@@ -154,7 +145,7 @@ JSONStatus_t JSONNodeDestroy(JSONNode_t* pNode) {
             JSONObj_t* pObj = pNode->value.pChildren;
             JSONObjMustBeValid(pObj);
             if (pObj->pFirstChild != NULL) {
-                JsonAssertMsg(JSONObjDestroyChildren(pObj) == JSONSuccess, "Failed to destroy children of a JSONObj !");
+                JSONObjDestroyChildren(pObj);
             }
             jsonFuncs.free(pObj);
             break;
@@ -165,21 +156,17 @@ JSONStatus_t JSONNodeDestroy(JSONNode_t* pNode) {
     
     JSONNodeConnectNeighbors(pNode);
     jsonFuncs.free(pNode);
-    
-    return JSONSuccess;
 }
 
 /// @brief Returns the Nth element of an array
 /// @param pArray The array
-/// @param ppOutNode A pointer to a pointer to store the element
 /// @param n The index of the element
-/// @return The outcome of the operation.
-JSONStatus_t JSONArrayGetNthNode(JSONArray_t* pArray, int_type n, JSONNode_t** ppOutNode) {
+/// @return The node at the specified index in the array
+JSONNode_t* JSONArrayGetNthNode(JSONArray_t* pArray, int_type n) {
     JSONArrayMustBeValid(pArray);
     JsonAssertMsg(n >= 0, "Tried to get a negative-th element of an array ! (what are you doing :sob:)");
 
-    if (pArray->pStart == NULL)
-        return JSONWarningArrayIsEmpty;
+    JsonAssertMsg(!JSONArrayIsEmpty(pArray), "Tried to get an element in an empty array !");
 
     JSONNode_t* current = pArray->pStart;
     for (int i = 0; i < n; i++) {
@@ -187,8 +174,7 @@ JSONStatus_t JSONArrayGetNthNode(JSONArray_t* pArray, int_type n, JSONNode_t** p
         JsonAssertMsg(current != NULL, "Array indexed out of range.");
     }
 
-    *ppOutNode = current;
-    return JSONSuccess;
+    return current;
 }
 /// @brief Adds an element node to an array node
 /// @param pArrayNode The array node.
@@ -203,9 +189,10 @@ void JSONArrayNodeAddNode(JSONNode_t* pArrayNode, JSONNode_t* pChild) {
     JSONArrayMustBeValid(pArray);
     JsonAssert(pChild != NULL);
 
-    // Make sure the node isn't already used in another array
+    // Make sure the node isn't already used in another array, and add the parent
     JsonAssertMsg(pChild->pParent == NULL, "Tried to add an array element, but the child node already has a parent ! Nodes should only have one reference at all times.");
     pChild->pParent = pArrayNode;
+
     if (JSONArrayIsEmpty(pArray)) {
         pArray->pStart = pChild;
         pArray->pEnd = pChild;
@@ -214,7 +201,10 @@ void JSONArrayNodeAddNode(JSONNode_t* pArrayNode, JSONNode_t* pChild) {
         pArray->pEnd = pChild;
     }
 }
-JSONStatus_t JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx) {
+/// @brief Removes an element from an array node at a specified index
+/// @param pArrayNode The array node.
+/// @param idx The index.
+void JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx) {
     JsonAssert(pArrayNode != NULL);
     JsonAssertMsg(pArrayNode->type == JSONArrayType, "Tried to remove an array element from a node that wasn't an array ! (what are you doing :sob:)");
 
@@ -226,11 +216,10 @@ JSONStatus_t JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx) {
     
     if (idx == ARRAY_POS_END) {
         pNodeToDelete = pArray->pEnd;
-        JsonAssertMsg(pNodeToDelete != NULL, "Tried to delete node from empty array.");
     } else {
-        JSONStatus_t res = JSONArrayGetNthNode(pArray, idx, &pNodeToDelete);
-        if (res != JSONSuccess) return res;
+        pNodeToDelete = JSONArrayGetNthNode(pArray, idx);
     }
+    JsonAssertMsg(pNodeToDelete != NULL, "Tried to delete node from empty array.");
 
     if (pNodeToDelete == pArray->pStart) {
         pArray->pStart = pArray->pStart->pNextSibling;
@@ -239,19 +228,17 @@ JSONStatus_t JSONArrayNodeRemoveNode(JSONNode_t* pArrayNode, int_type idx) {
         pArray->pEnd = pArray->pEnd->pPrevSibling;
     }
 
-    JsonAssertMsg(JSONNodeConnectNeighbors(pNodeToDelete) == JSONSuccess, "Unable to connect neighbors of a node while removing element from an array !");
-    JsonAssertMsg(JSONNodeDestroy(pNodeToDelete) == JSONSuccess, "Unable to destroy node after removing element from an array !");
-    return JSONSuccess;
+    JSONNodeConnectNeighbors(pNodeToDelete);
+    JSONNodeDestroy(pNodeToDelete);
 }
-JSONStatus_t JSONArrayNodeRemoveAllNodes(JSONNode_t* pNode) {
+void JSONArrayNodeRemoveAllNodes(JSONNode_t* pNode) {
     JsonAssert(pNode != NULL);
     JsonAssertMsg(pNode->type == JSONArrayType, "Tried to remove elements from a node that wasn't an array ! (what are you doing :sob:)");
 
     JSONArrayDestroyElements(pNode->value.pArray);
-    return JSONSuccess;
 }
 
-JSONStatus_t JSONNodeAdoptChildNode(JSONNode_t* pParent, JSONNode_t* pChild) {
+void JSONNodeAdoptChildNode(JSONNode_t* pParent, JSONNode_t* pChild) {
     JsonAssert(pParent != NULL);
     JsonAssert(pChild != NULL);
     JsonAssertMsg(pChild->pParent == NULL, "Tried to adopt a child node, but the child node already has a parent ! Nodes should only have one reference at all times.");
@@ -268,7 +255,6 @@ JSONStatus_t JSONNodeAdoptChildNode(JSONNode_t* pParent, JSONNode_t* pChild) {
         JSONNodeInsertAfter(pChildren->pLastChild, pChild);
     }
     pChildren->pLastChild = pChild;
-    return JSONSuccess;
 }
 JSONNode_t* JSONCreateNode(const char* name, JSONType_t type, JSONValue_t value) {
     JSONNode_t* pNode = (JSONNode_t*)jsonFuncs.malloc(sizeof(JSONNode_t));
@@ -355,78 +341,78 @@ JSONNode_t* JSONCreateArrayNode(JSONArray_t* pArray) {
     return JSONCreateNamedArrayNode("", pArray);
 }
 
-JSONStatus_t JSONNodeAddNamedNullNode(JSONNode_t* pParent, const char* name) {
+void JSONNodeAddNamedNullNode(JSONNode_t* pParent, const char* name) {
     JSONNode_t* pNewNode = JSONCreateNamedNullNode(name);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedBoolNode(JSONNode_t* pParent, const char* name, bool value) {
+void JSONNodeAddNamedBoolNode(JSONNode_t* pParent, const char* name, bool value) {
     JSONNode_t* pNewNode = JSONCreateNamedBoolNode(name, value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedIntNode(JSONNode_t* pParent, const char* name, int_type value) {
+void JSONNodeAddNamedIntNode(JSONNode_t* pParent, const char* name, int_type value) {
     JSONNode_t* pNewNode = JSONCreateNamedIntNode(name, value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedFloatNode(JSONNode_t* pParent, const char* name, float_type value) {
+void JSONNodeAddNamedFloatNode(JSONNode_t* pParent, const char* name, float_type value) {
     JSONNode_t* pNewNode = JSONCreateNamedFloatNode(name, value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedStringNode(JSONNode_t* pParent, const char* name, const char* value) {
+void JSONNodeAddNamedStringNode(JSONNode_t* pParent, const char* name, const char* value) {
     JSONNode_t* pNewNode = JSONCreateNamedStrNode(name, value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNewNamedObjNode(JSONNode_t* pParent, const char* name) {
+void JSONNodeAddNewNamedObjNode(JSONNode_t* pParent, const char* name) {
     JSONNode_t* pNewNode = JSONCreateNewNamedObjNode(name);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedObjNode(JSONNode_t* pParent, const char* name, JSONObj_t* pObj) {
+void JSONNodeAddNamedObjNode(JSONNode_t* pParent, const char* name, JSONObj_t* pObj) {
     JSONNode_t* pNewNode = JSONCreateNamedObjNode(name, pObj);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNewNamedArrayNode(JSONNode_t* pParent, const char* name) {
+void JSONNodeAddNewNamedArrayNode(JSONNode_t* pParent, const char* name) {
     JSONNode_t* pNewNode = JSONCreateNewNamedArrayNode(name);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNamedArrayNode(JSONNode_t* pParent, const char* name, JSONArray_t* pArray) {
+void JSONNodeAddNamedArrayNode(JSONNode_t* pParent, const char* name, JSONArray_t* pArray) {
     JSONNode_t* pNewNode = JSONCreateNamedArrayNode(name, pArray);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
 
-JSONStatus_t JSONNodeAddNullNode(JSONNode_t* pParent) {
+void JSONNodeAddNullNode(JSONNode_t* pParent) {
     JSONNode_t* pNewNode = JSONCreateNullNode();
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddBoolNode(JSONNode_t* pParent, bool value) {
+void JSONNodeAddBoolNode(JSONNode_t* pParent, bool value) {
     JSONNode_t* pNewNode = JSONCreateBoolNode(value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddIntNode(JSONNode_t* pParent, int_type value) {
+void JSONNodeAddIntNode(JSONNode_t* pParent, int_type value) {
     JSONNode_t* pNewNode = JSONCreateIntNode(value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddFloatNode(JSONNode_t* pParent, float_type value) {
+void JSONNodeAddFloatNode(JSONNode_t* pParent, float_type value) {
     JSONNode_t* pNewNode = JSONCreateFloatNode(value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddStringNode(JSONNode_t* pParent, const char* value) {
+void JSONNodeAddStringNode(JSONNode_t* pParent, const char* value) {
     JSONNode_t* pNewNode = JSONCreateStrNode(value);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNewObjNode(JSONNode_t* pParent) {
+void JSONNodeAddNewObjNode(JSONNode_t* pParent) {
     JSONNode_t* pNewNode = JSONCreateNewObjNode();
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddObjNode(JSONNode_t* pParent, JSONObj_t* pObj) {
+void JSONNodeAddObjNode(JSONNode_t* pParent, JSONObj_t* pObj) {
     JSONNode_t* pNewNode = JSONCreateObjNode(pObj);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddNewArrayNode(JSONNode_t* pParent) {
+void JSONNodeAddNewArrayNode(JSONNode_t* pParent) {
     JSONNode_t* pNewNode = JSONCreateNewArrayNode();
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
-JSONStatus_t JSONNodeAddArrayNode(JSONNode_t* pParent, JSONArray_t* pArray) {
+void JSONNodeAddArrayNode(JSONNode_t* pParent, JSONArray_t* pArray) {
     JSONNode_t* pNewNode = JSONCreateArrayNode(pArray);
-    return JSONNodeAdoptChildNode(pParent, pNewNode);
+    JSONNodeAdoptChildNode(pParent, pNewNode);
 }
 
 // for these i'm not using int_type because i chose to adhere to libc functions' return types instead (i.e. sizeof and strlen are size_t, snprintf returns int)
@@ -435,7 +421,6 @@ JSONStatus_t JSONNodeAddArrayNode(JSONNode_t* pParent, JSONArray_t* pArray) {
 /// @param pNode The node
 /// @return The length
 size_t JSONNodeGetPreValLength(JSONNode_t* pNode) {
-    JsonAssert(pNode != NULL);
     if (pNode->pParent != NULL) {
         if (pNode->pParent->type == JSONObjType) {
             return sizeof(STRING_DELIM) + jsonFuncs.strlen(pNode->name) + sizeof(STRING_DELIM) + sizeof(KEYVAL_SEPARATOR);
@@ -503,7 +488,6 @@ static size_t JSONArrayNodeGetValueLength(JSONNode_t* pNode) {
 /// @param pNode The node
 /// @return The length
 size_t JSONNodeGetValueLength(JSONNode_t* pNode) {
-    JsonAssert(pNode != NULL);
     size_t length;
     switch (pNode->type) {
         case JSONNullType: {
@@ -545,11 +529,11 @@ size_t JSONNodeGetValueLength(JSONNode_t* pNode) {
 /// @param pNode The node
 /// @return The length
 size_t JSONNodeGetLength(JSONNode_t* pNode) {
-    JsonAssert(pNode != NULL);
     return JSONNodeGetPreValLength(pNode) + JSONNodeGetValueLength(pNode);
 }
 
 static void JSONNodeDumpPreVal(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     if (pNode->pParent == NULL) return;
     if (pNode->pParent->type != JSONObjType) return;
 
@@ -566,12 +550,14 @@ static void JSONNodeDumpPreVal(JSONNode_t* pNode, char* pBuffer, int_type* pPosi
     (*pPosition)++;
 }
 static void JSONNodeNullValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONNullType);
 
     (void)jsonFuncs.strncpy(pBuffer + *pPosition, "null", 4);
     (*pPosition) += 4;
 }
 static void JSONNodeBoolValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONBoolType);
 
     if (pNode->value.b) {
@@ -583,6 +569,7 @@ static void JSONNodeBoolValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pP
     }
 }
 static void JSONNodeIntValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONIntType);
 
     size_t length = JSONIntNodeGetValueLength(pNode);
@@ -590,6 +577,7 @@ static void JSONNodeIntValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPo
     (*pPosition) += length;
 }
 static void JSONNodeFloatValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONFloatType);
     
     size_t length = JSONFloatNodeGetValueLength(pNode);
@@ -597,6 +585,7 @@ static void JSONNodeFloatValueDump(JSONNode_t* pNode, char* pBuffer, int_type* p
     (*pPosition) += length;
 }
 static void JSONNodeStringValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONStringType);
 
     const char* str = pNode->value.str;
@@ -612,6 +601,7 @@ static void JSONNodeStringValueDump(JSONNode_t* pNode, char* pBuffer, int_type* 
     (*pPosition)++;
 }
 static void JSONNodeObjValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONObjType);
 
     pBuffer[*pPosition] = JSONOBJ_START;
@@ -633,6 +623,7 @@ static void JSONNodeObjValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPo
     (*pPosition)++;
 }
 static void JSONNodeArrayValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
+    JsonAssert(pBuffer != NULL);
     JsonAssert(pNode->type == JSONArrayType);
 
     pBuffer[*pPosition] = JSONARRAY_START;
@@ -655,10 +646,6 @@ static void JSONNodeArrayValueDump(JSONNode_t* pNode, char* pBuffer, int_type* p
 }
 
 void JSONNodeValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
-    JsonAssert(pNode != NULL);
-    JsonAssert(pBuffer != NULL);
-    JsonAssert(pPosition != NULL);
-
     switch (pNode->type) {
         case JSONNullType: {
             JSONNodeNullValueDump(pNode, pBuffer, pPosition);
@@ -699,10 +686,6 @@ void JSONNodeValueDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
 }
 
 void JSONNodeDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
-    JsonAssert(pNode != NULL);
-    JsonAssert(pBuffer != NULL);
-    JsonAssert(pPosition != NULL);
-
     JSONNodeDumpPreVal(pNode, pBuffer, pPosition);
     JSONNodeValueDump(pNode, pBuffer, pPosition);
 }
@@ -711,8 +694,6 @@ void JSONNodeDump(JSONNode_t* pNode, char* pBuffer, int_type* pPosition) {
 /// @param pRoot The root of the tree to dump (or a single node if that's what you want to dump)
 /// @return The string representation of the JSON node. Must be freed.
 const char* JSONDump(JSONNode_t* pRoot) {
-    JsonAssert(pRoot != NULL);
-
     char* pBuffer = NULL;
     int_type length = JSONNodeGetLength(pRoot);
     pBuffer = (char*)jsonFuncs.malloc(length + 1);
