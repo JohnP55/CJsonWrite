@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "cjsonwrite_types.h": "c",
+        "cjsonwrite.h": "c",
+        "stdbool.h": "c",
+        "stdio.h": "c",
+        "cjsonwriteexample.h": "c"
+    }
+}

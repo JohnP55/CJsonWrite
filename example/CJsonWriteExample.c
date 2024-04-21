@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-int main() {
-    // Initialize common CJsonWrite functions. This is useful for embedded systems development
+void CJsonWriteExample() {
+    // Initialize common CJsonWrite functions. This is useful in embedded systems development
     // For this example I'll use the standard glibc functions
     JSONFuncs_t funcs = {
         .malloc=malloc,
@@ -53,10 +53,28 @@ int main() {
     printf("%s\n", full);
     
     // Free the buffer for the rendered JSON string
-    funcs.free((void*)full);
+    jsonFuncs.free((void*)full);
+
+    // Delete one element of the array
+    JSONArrayNodeRemoveNode(pArrayNode, ARRAY_POS_END);
+
+    // Re-render and show the JSON
+    full = JSONDump(pRoot);
+    printf("%s\n", full);
+    jsonFuncs.free((void*)full);
+
+    // Delete all elements of the array
+    JSONArrayNodeRemoveAllNodes(pArrayNode);
+
+    // Re-render and show the JSON
+    full = JSONDump(pRoot);
+    printf("%s\n", full);
+    jsonFuncs.free((void*)full);
 
     // Destroy the root of the tree, which will recursively free every node
     JSONNodeDestroy(pRoot);
-
+}
+int main() {
+    CJsonWriteExample();
     return 0;
 }
